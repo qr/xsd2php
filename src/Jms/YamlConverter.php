@@ -15,6 +15,7 @@ use GoetasWebservices\XML\XSDReader\Schema\Schema;
 use GoetasWebservices\XML\XSDReader\Schema\SchemaItem;
 use GoetasWebservices\XML\XSDReader\Schema\Type\BaseComplexType;
 use GoetasWebservices\XML\XSDReader\Schema\Type\ComplexType;
+use GoetasWebservices\XML\XSDReader\Schema\Type\ComplexTypeSimpleContent;
 use GoetasWebservices\XML\XSDReader\Schema\Type\SimpleType;
 use GoetasWebservices\XML\XSDReader\Schema\Type\Type;
 use GoetasWebservices\Xsd\XsdToPhp\AbstractConverter;
@@ -342,6 +343,19 @@ class YamlConverter extends AbstractConverter
                     $data["properties"]["__value"] = $property;
 
                 }
+                if ($type instanceof ComplexTypeSimpleContent) {
+                    $property = array();
+                    $property["expose"] = true;
+                    $property["xml_value"] = true;
+                    if ($valueProp = $this->typeHasValue($type, $class, $parentName)) {
+                        $property["type"] = $valueProp;
+                    } else {
+                        $property["type"] = key($extension);
+                    }
+
+                    $data["properties"]["__value"] = $property;
+
+                }
             }
         }
     }
@@ -496,8 +510,40 @@ class YamlConverter extends AbstractConverter
             }
         }
 
-        $property["type"] = $this->findPHPClass($class, $element);
+        $className = $this->findPHPClass($class, $element);
+        if ($t instanceof ComplexTypeSimpleContent) {
+            $parameter = $this->resolveValueParameter((new \ReflectionClass($className)));
+            if (null === $parameter) {
+                $property["type"] = $className;
+            } else {
+                $annotation = $parameter->getDocComment();
+                $propertyPos = strpos($parameter->getDocComment(), '@property');
+                $annotation = substr($annotation, $propertyPos + 10);
+                $type = substr($annotation, 0, strpos($annotation, ' '));
+                if ($type[0] === '\\') {
+                    $type = substr($type, 1);
+                }
+                $property["type"] = $type;
+            }
+        } else {
+            $property["type"] = $className;
+        }
+
         return $property;
+    }
+
+    /**
+     * @param \ReflectionClass $class
+     * @return \ReflectionProperty|null
+     */
+    private function resolveValueParameter($class) {
+        if (count($class->getProperties()) === 1 && $class->hasProperty('__value')) {
+            return $class->getProperty('__value');
+        }
+        if($parent = $class->getParentClass()) {
+            return $this->resolveValueParameter($parent);
+        }
+        return null;
     }
 
     private function findPHPClass(&$class, Item $node)
