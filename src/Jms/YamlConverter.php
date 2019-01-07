@@ -502,7 +502,7 @@ class YamlConverter extends AbstractConverter
                 $property["xml_list"]["inline"] = true;
                 $property["xml_list"]["entry_name"] = $element->getName();
                 if ($schema->getTargetNamespace() && ($schema->getElementsQualification() || ($element instanceof Element && $element->isQualified()))) {
-                    $property["xml_list"]["namespace"] = $schema->getTargetNamespace();
+                    $property["xml_list"]["namespace"] = $element->getSchema()->getTargetNamespace();
                 }
 
                 $property["type"] = "array<" . $this->findPHPClass($class, $element) . ">";
